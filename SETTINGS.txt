@@ -1,0 +1,4 @@
+HorizonConnectionServer.example.com
+NETBIOSDOMAIN
+service_user_with_horizon_admin
+SuperLongPasswordForServiceUser
