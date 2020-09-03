@@ -79,8 +79,8 @@ $Global:HzPass   = ConvertTo-SecureString $settingsFile[3].Trim() -AsPlainText -
 function Get-HVAdGroupMachines()
 {
     $duplicateCheck = @{}
-    $adPrefix = $Global:AdPoolPrefix + '*' # Global unavailable in brackets and using a string would need date formatting.
-    $adGroups = Get-ADGroup -Filter { name -like $adPrefix } | Select-Object name,distinguishedName
+
+    $adGroups = Get-ADGroup -Filter "name -like '$($Global:AdPoolPrefix)*'" | Select-Object name,distinguishedName
     foreach ($adGroup in $adGroups)
     {
         "Getting recursive group membership, $($adGroup.Name)" | LogMessage -Color Green
