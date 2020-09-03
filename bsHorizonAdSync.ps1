@@ -5,7 +5,6 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$Global:AdDeltaSearch  = $false
 $Global:AdPoolPrefix   = 'R_HZ.'
 $Global:AdAccessPrefix = 'U_HZ.'
 $Global:LogoffMinutes  = 30
@@ -79,22 +78,9 @@ $Global:HzPass   = ConvertTo-SecureString $settingsFile[3].Trim() -AsPlainText -
 
 function Get-HVAdGroupMachines()
 {
-    # If delta changes are on, we only get groups that have changed since this was last run.
-    $lastRunDate = (Get-Date -Year '1971')
-    if ($Global:AdDeltaSearch)
-    {
-        try { $lastRunDate = [DateTime]::Parse((Get-Content -Path ($PSScriptRoot + '\LAST-RUN'))) } catch { }
-    }
-
-    # Remove a minute to allow for AD replication of modified date.
-    $lastRunDate = $lastRunDate.AddMinutes(-1)
-
-    # Show delta date and setting for awareness.
-    "Delta search settings, $($lastRunDate.ToString('u')), $Global:AdDeltaSearch " | LogMessage -Color Cyan
-
     $duplicateCheck = @{}
     $adPrefix = $Global:AdPoolPrefix + '*' # Global unavailable in brackets and using a string would need date formatting.
-    $adGroups = Get-ADGroup -Filter { whenChanged -ge $lastRunDate -and name -like $adPrefix } | Select-Object name,distinguishedName
+    $adGroups = Get-ADGroup -Filter { name -like $adPrefix } | Select-Object name,distinguishedName
     foreach ($adGroup in $adGroups)
     {
         "Getting recursive group membership, $($adGroup.Name)" | LogMessage -Color Green
@@ -518,17 +504,11 @@ if (!(Test-Path variable:Global:DefaultHVServers) -or !$Global:DefaultHVServers)
     }
 }
 
-# Get run time before actions for delta search option.
-$lastRunTime = Get-Date -Format 'o'
-
 # Get available Horizon machines and start the AD search.
 Set-HVGlobalMachineList
 Get-HVAdGroupMachines
 
 # Actively disconnect from the Horizon server.
 Disconnect-HVServer -Confirm:$false
-
-# Save last run time for AD delta search option.
-Set-Content -Path ($PSScriptRoot + '\LAST-RUN') -Value $lastRunTime
 
 "Finished." | LogMessage -Color Green
