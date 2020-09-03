@@ -28,7 +28,7 @@ $Global:HzPass   = ConvertTo-SecureString $settingsFile[3].Trim() -AsPlainText -
  - Updates the display name for the pool and global entitlement as long as the pool name remains the same.
  - Although coded to generate a display name from the group name, it could be loaded from a separate group attribute.
 
- - By Richard Perry, Last updated 2020-09-02.
+ - By Richard Perry, Last updated 2020-09-03.
 
 -------------------------------------------------------------------------------------------------------------------------------+
 
