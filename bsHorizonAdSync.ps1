@@ -18,62 +18,62 @@ $Global:HzPass   = ConvertTo-SecureString $settingsFile[3].Trim() -AsPlainText -
 
 <#-----------------------------------------------------------------------------------------------------------------------------+
 
-    - This script syncs Active Directory computer groups with VMWare Horizon MANUAL desktop pools.
+ - This script syncs Active Directory computer groups with VMWare Horizon MANUAL desktop pools.
 
-    - This script DOES NOT remove pools or entitlements if their source AD group is removed.
+ - This script DOES NOT remove pools or entitlements if their source AD group is removed.
+ 
+ - Finds AD groups with the prefix setting, creates a matching Horizon pool and global entitlement, 
+ - Gets computers from the AD group, including any nested groups, and adds the ones registered in Horizon into the pool.
+ - Gives permission on the global entitlement if a matching AD user access group exists.
+ - Updates the display name for the pool and global entitlement as long as the pool name remains the same.
+ - Although coded to generate a display name from the group name, it could be loaded from a separate group attribute.
 
-    - Finds AD groups with the prefix setting, creates a matching Horizon pool and global entitlement,
-    - Gets computers from the AD group, including any nested groups, and adds the ones registered in Horizon into the pool.
-    - Gives permission on the global entitlement if a matching AD user access group exists.
-    - Updates the display name for the pool and global entitlement as long as the pool name remains the same.
-    - Although coded to generate a display name from the group name, it could be loaded from a separate group attribute.
-
-    - By Richard Perry, Last updated 2020-09-17.
-
--------------------------------------------------------------------------------------------------------------------------------+
-
-    ONE TIME ENVIRONMENT SETUP:
-
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    Install-Module VMware.PowerCLI
-
-    Set-PowerCLIConfiguration -ParticipateInCEIP $false        -Scope AllUsers -Confirm:$false
-    Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Scope AllUsers -Confirm:$false
-
-    Download and extract whole project zip from: https://github.com/vmware/PowerCLI-Example-Scripts
-    Copy 'VMware.Hv.Helper' folder from 'PowerCLI-Example-Scripts-master\Modules' into 'C:\Program Files\WindowsPowerShell\Modules'
-
-    Close any PowerShell windows or ISE and re-open so changes and modules are loaded.
+ - By Richard Perry, Last updated 2020-09-17.
 
 -------------------------------------------------------------------------------------------------------------------------------+
 
-    CODE AND VMWARE.HV.HELPER 1.3.1 NOTES:
+ ONE TIME ENVIRONMENT SETUP:
 
-    Get-ADGroupMember is limited by DC setting 'MaxGroupOrMemberEntries' which by default is 5000 members returned.
+ [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+ Install-Module VMware.PowerCLI
 
-    The 'Get-HVMachineSummary' was found buggy, where after time it starts returning partial results like a limit had been set,
-    and required a connection service restart to fix. Instead 'Get-HVQueryResult' is used which seems unaffected by the issue.
+ Set-PowerCLIConfiguration -ParticipateInCEIP $false        -Scope AllUsers -Confirm:$false
+ Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Scope AllUsers -Confirm:$false
 
-    The 'New-HVPool' param -VM is the machines to be added, at least one must be provided as empty new pools are not allowed.
-    If a machine specified is not registered or used by another pool, it gives a very unhelpful error:
-    Exception calling "Desktop_Create" with "2" argument(s): "There is an error in the XML document."
+ Download and extract whole project zip from: https://github.com/vmware/PowerCLI-Example-Scripts
+ Copy 'VMware.Hv.Helper' folder from 'PowerCLI-Example-Scripts-master\Modules' into 'C:\Program Files\WindowsPowerShell\Modules'
 
-    The 'New-HVPool' param -GlobalEntitlement does not seem to work, instead use a delay and 'Set-HVPool' after creation.
+ Close any PowerShell windows or ISE and re-open so changes and modules are loaded.
 
-    The 'New-HVPool' param -AutomaticLogoffPolicy has mistakenly been restricted to CLONE type pools, so errors on MANUAL.
-    Also 'Set-HVPool' does not have AutomaticLogoffPolicy, or support setting its Key, so we use our own helper function.
+-------------------------------------------------------------------------------------------------------------------------------+
 
-    The 'Set-HVPool' param -Key is cAsE SeNsItiVe, for example 'base.displayname' instead of 'base.displayName' gives:
-    Exception calling "Desktop_Update" with "3" argument(s): "ExceptionType : VMware.Hv.InvalidArgument
+ CODE AND VMWARE.HV.HELPER 1.3.1 NOTES:
 
-    The 'Set-HVPool' param -PoolName is optional and will silently return nothing if there was no pool specified.
+ Get-ADGroupMember is limited by DC setting 'MaxGroupOrMemberEntries' which by default is 5000 members returned.
 
-    The 'Get-HVPoolSummary' has 'DesktopSummaryData.NumMachine' but it does not update after adding or removing machines,
-    only after re-connecting. Instead array wrap 'Get-HVMachineSummary' and count the number of entries.
+ The 'Get-HVMachineSummary' was found buggy, where after time it starts returning partial results like a limit had been set,
+ and required a connection service restart to fix. Instead 'Get-HVQueryResult' is used which seems unaffected by the issue.
 
-    The 'Add-HVDesktop' adds machines to an existing pool, but HV.Helper has no 'Remove' or 'Move' function.
-    There is a tempting 'Remove-HVMachine' but this unregisters physical desktops from the inventory database.
-    Good news is the low-level API does contain a remove from pool option, so we use our own helper function.
+ The 'New-HVPool' param -VM is the machines to be added, at least one must be provided as empty new pools are not allowed.
+ If a machine specified is not registered or used by another pool, it gives a very unhelpful error:
+ Exception calling "Desktop_Create" with "2" argument(s): "There is an error in the XML document."
+
+ The 'New-HVPool' param -GlobalEntitlement does not seem to work, instead use a delay and 'Set-HVPool' after creation.
+
+ The 'New-HVPool' param -AutomaticLogoffPolicy has mistakenly been restricted to CLONE type pools, so errors on MANUAL.
+ Also 'Set-HVPool' does not have AutomaticLogoffPolicy, or support setting its Key, so we use our own helper function.
+
+ The 'Set-HVPool' param -Key is cAsE SeNsItiVe, for example 'base.displayname' instead of 'base.displayName' gives:
+ Exception calling "Desktop_Update" with "3" argument(s): "ExceptionType : VMware.Hv.InvalidArgument
+
+ The 'Set-HVPool' param -PoolName is optional and will silently return nothing if there was no pool specified.
+
+ The 'Get-HVPoolSummary' has 'DesktopSummaryData.NumMachine' but it does not update after adding or removing machines,
+ only after re-connecting. Instead array wrap 'Get-HVMachineSummary' and count the number of entries.
+
+ The 'Add-HVDesktop' adds machines to an existing pool, but HV.Helper has no 'Remove' or 'Move' function.
+ There is a tempting 'Remove-HVMachine' but this unregisters physical desktops from the inventory database.
+ Good news is the low-level API does contain a remove from pool option, so we use our own helper function.
 
 ------------------------------------------------------------------------------------------------------------------------------#>
 
